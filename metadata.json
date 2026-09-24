@@ -1,0 +1,6 @@
+{
+  "name": "Huszár Attila | Kaszkadőr",
+  "description": "Huszár Attila magyar gyalogos kaszkadőr hivatalos személyes oldala. Páty, Magyarország. Független Magyar Kaszkadőrök Szövetsége.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
