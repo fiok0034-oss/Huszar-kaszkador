@@ -175,12 +175,12 @@ export const SavedItemsTab: React.FC<SavedItemsTabProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredItems.map((item) => {
+          {filteredItems.map((item, index) => {
             const isEditingNotes = editingNotesId === item.id;
 
             return (
               <div
-                key={item.id}
+                key={`${item.id}-${index}`}
                 className="p-5 border border-[#232733] bg-[#0e1014] hover:border-[#383e4c] transition-all space-y-4"
               >
                 {/* Header row: Status Selector & Type */}

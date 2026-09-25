@@ -125,13 +125,13 @@ export const StuntJobsTab: React.FC<StuntJobsTabProps> = ({
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {items.map((item) => {
+            {items.map((item, index) => {
               const isSaved = savedMap.has(item.id);
               const savedData = savedMap.get(item.id);
 
               return (
                 <div
-                  key={item.id}
+                  key={`${item.id}-${index}`}
                   className="p-5 border border-[#232733] bg-[#0e1014] hover:border-[#383e4c] transition-all space-y-4"
                 >
                   {/* Top tags */}
@@ -303,9 +303,9 @@ export const StuntJobsTab: React.FC<StuntJobsTabProps> = ({
           </div>
 
           <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-            {recentItems.map((rec) => (
+            {recentItems.map((rec, index) => (
               <div
-                key={rec.id}
+                key={`${rec.id}-${index}`}
                 className="p-3 border border-[#1b1e26] bg-[#08090b] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
               >
                 <div className="space-y-0.5">

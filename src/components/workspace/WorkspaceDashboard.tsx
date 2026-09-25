@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Sparkles,
   Bookmark,
-  Send,
-  Hourglass,
   Calendar,
   Clock,
   RefreshCw,
@@ -100,9 +98,13 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({
     { id: 'all', label: 'ÖSSZES' },
     { id: 'new', label: 'ÚJ LEHETŐSÉGEK' },
     { id: 'saved', label: 'MENTETT' },
-    { id: 'applied', label: 'JELENTKEZVE' },
-    { id: 'pending', label: 'VISSZAJELZÉSRE VÁR' },
-    { id: 'closed', label: 'LEZÁRT' },
+    ...(isUnlocked
+      ? [
+          { id: 'applied', label: 'JELENTKEZVE' },
+          { id: 'pending', label: 'VISSZAJELZÉSRE VÁR' },
+          { id: 'closed', label: 'LEZÁRT' },
+        ]
+      : []),
     { id: 'pedestrian', label: 'GYALOGOS KASZKADŐR' },
     { id: 'vehicle', label: 'AUTÓS IRÁNY (FIGYELÉS)' },
   ];
@@ -115,12 +117,12 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-pulse" />
             <span className="font-mono text-xs text-white font-bold tracking-widest uppercase">
-              STUNT WORKSPACE
+              MUNKA FIGYELŐ
             </span>
           </div>
           <span className="text-[#4b5563]">|</span>
           <div className="font-mono text-[11px] text-[#9ca3af] flex items-center gap-2">
-            <span>Huszár Attila Személyes Szakmai Rendszere</span>
+            <span>Nyilvános Szakmai Rendszer</span>
             {cached && (
               <span className="hidden sm:inline text-[10px] text-[#10b981] px-1.5 py-0.2 border border-[#10b981]/40 bg-[#10b981]/10">
                 ⚡ Cache ({cacheAgeSeconds ?? 0}s)
@@ -158,89 +160,65 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({
         </div>
       </div>
 
-      {/* DASHBOARD METRICS - EXACT SPECIFICATION REQUIREMENT 14 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+      {/* DASHBOARD METRICS - 4 CARDS IN SYMMETRICAL 2x2 / 4-COL GRID */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Metric 1: ÚJ LEHETŐSÉGEK */}
-        <div className="p-3 sm:p-4 border border-[#232733] bg-[#0c0d10] flex flex-col justify-between">
-          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-1 flex items-center justify-between">
-            <span>ÚJ LEHETŐSÉGEK</span>
-            <Sparkles size={12} className={stats.newOpportunitiesCount > 0 ? 'text-[#10b981]' : 'text-[#4b5563]'} />
+        <div className="p-4 border border-[#232733] bg-[#0c0d10] hover:border-[#10b981]/40 transition-all flex flex-col justify-between group">
+          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span className="group-hover:text-white transition-colors">ÚJ LEHETŐSÉGEK</span>
+            <Sparkles size={13} className={stats.newOpportunitiesCount > 0 ? 'text-[#10b981]' : 'text-[#4b5563]'} />
           </div>
-          <div className="font-mono text-xl sm:text-2xl font-bold text-white">
+          <div className="font-mono text-2xl sm:text-3xl font-bold text-white mb-2">
             {stats.newOpportunitiesCount}
           </div>
-          <div className="font-mono text-[10px] text-[#6b7280] mt-1">
-            Valós új észlelés
+          <div className="font-mono text-[10px] text-[#6b7280] flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+            <span>Valós új észlelés</span>
           </div>
         </div>
 
         {/* Metric 2: MENTETT */}
-        <div className="p-3 sm:p-4 border border-[#232733] bg-[#0c0d10] flex flex-col justify-between">
-          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-1 flex items-center justify-between">
-            <span>MENTETT</span>
-            <Bookmark size={12} className="text-[#38bdf8]" />
+        <div className="p-4 border border-[#232733] bg-[#0c0d10] hover:border-[#38bdf8]/40 transition-all flex flex-col justify-between group">
+          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span className="group-hover:text-white transition-colors">MENTETT</span>
+            <Bookmark size={13} className="text-[#38bdf8]" />
           </div>
-          <div className="font-mono text-xl sm:text-2xl font-bold text-white">
+          <div className="font-mono text-2xl sm:text-3xl font-bold text-white mb-2">
             {stats.savedCount}
           </div>
-          <div className="font-mono text-[10px] text-[#6b7280] mt-1">
-            Saját adatbázisban
+          <div className="font-mono text-[10px] text-[#6b7280] flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8]" />
+            <span>Saját adatbázisban</span>
           </div>
         </div>
 
-        {/* Metric 3: JELENTKEZVE */}
-        <div className="p-3 sm:p-4 border border-[#232733] bg-[#0c0d10] flex flex-col justify-between">
-          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-1 flex items-center justify-between">
-            <span>JELENTKEZVE</span>
-            <Send size={12} className="text-[#a78bfa]" />
+        {/* Metric 3: HATÁRIDŐK */}
+        <div className="p-4 border border-[#232733] bg-[#0c0d10] hover:border-[#f87171]/40 transition-all flex flex-col justify-between group">
+          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span className="group-hover:text-white transition-colors">HATÁRIDŐK</span>
+            <Calendar size={13} className="text-[#f87171]" />
           </div>
-          <div className="font-mono text-xl sm:text-2xl font-bold text-white">
-            {stats.appliedCount}
-          </div>
-          <div className="font-mono text-[10px] text-[#6b7280] mt-1">
-            Felhasználói státusz
-          </div>
-        </div>
-
-        {/* Metric 4: VISSZAJELZÉSRE VÁR */}
-        <div className="p-3 sm:p-4 border border-[#232733] bg-[#0c0d10] flex flex-col justify-between">
-          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-1 flex items-center justify-between">
-            <span>VISSZAJELZÉSRE VÁR</span>
-            <Hourglass size={12} className="text-[#fbbf24]" />
-          </div>
-          <div className="font-mono text-xl sm:text-2xl font-bold text-white">
-            {stats.pendingCount}
-          </div>
-          <div className="font-mono text-[10px] text-[#6b7280] mt-1">
-            Folyamatban lévő
-          </div>
-        </div>
-
-        {/* Metric 5: HATÁRIDŐK */}
-        <div className="p-3 sm:p-4 border border-[#232733] bg-[#0c0d10] flex flex-col justify-between">
-          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-1 flex items-center justify-between">
-            <span>HATÁRIDŐK</span>
-            <Calendar size={12} className="text-[#f87171]" />
-          </div>
-          <div className="font-mono text-xl sm:text-2xl font-bold text-white">
+          <div className="font-mono text-2xl sm:text-3xl font-bold text-white mb-2">
             {stats.deadlinesCount}
           </div>
-          <div className="font-mono text-[10px] text-[#6b7280] mt-1">
-            Aktív emlékeztetők
+          <div className="font-mono text-[10px] text-[#6b7280] flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#f87171]" />
+            <span>Aktív emlékeztetők</span>
           </div>
         </div>
 
-        {/* Metric 6: LAST CHECK */}
-        <div className="p-3 sm:p-4 border border-[#232733] bg-[#0c0d10] flex flex-col justify-between">
-          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-1 flex items-center justify-between">
-            <span>LAST CHECK</span>
-            <Clock size={12} className="text-[#6b7280]" />
+        {/* Metric 4: LAST CHECK */}
+        <div className="p-4 border border-[#232733] bg-[#0c0d10] hover:border-[#10b981]/40 transition-all flex flex-col justify-between group">
+          <div className="font-mono text-[10px] text-[#9ca3af] uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span className="group-hover:text-white transition-colors">LAST CHECK</span>
+            <Clock size={13} className="text-[#6b7280]" />
           </div>
-          <div className="font-mono text-base sm:text-lg font-bold text-white truncate">
+          <div className="font-mono text-lg sm:text-xl font-bold text-white truncate mb-2">
             {formatTime(stats.lastCheck)}
           </div>
-          <div className="font-mono text-[10px] text-[#10b981] mt-1 truncate">
-            ● Háttérfigyelő aktív
+          <div className="font-mono text-[10px] text-[#10b981] flex items-center gap-1.5 truncate">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
+            <span>Háttérfigyelő aktív</span>
           </div>
         </div>
       </div>

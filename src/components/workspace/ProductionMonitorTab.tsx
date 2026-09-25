@@ -81,12 +81,12 @@ export const ProductionMonitorTab: React.FC<ProductionMonitorTabProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {productions.map((prod) => {
+            {productions.map((prod, index) => {
               const isSaved = savedMap.has(prod.id);
 
               return (
                 <div
-                  key={prod.id}
+                  key={`${prod.id}-${index}`}
                   className="p-5 border border-[#232733] bg-[#0e1014] hover:border-[#383e4c] transition-all flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-3">

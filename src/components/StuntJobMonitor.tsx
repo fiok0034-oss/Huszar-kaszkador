@@ -479,10 +479,10 @@ export const StuntJobMonitor: React.FC = () => {
         <span className="font-mono text-xs text-[#6b7280]">06</span>
         <div>
           <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-[#f3f4f6] uppercase">
-            STUNT WORKSPACE &amp; MUNKA FIGYELŐ
+            MUNKA FIGYELŐ
           </h2>
           <p className="font-mono text-xs text-[#9ca3af] mt-1">
-            Valós idejű nyilvános produkció- és kaszkadőr felhívás figyelő, személyes munkaterülettel és jelentkezés-követéssel.
+            Valós idejű nyilvános produkció- és kaszkadőr felhívás figyelő.
           </p>
         </div>
       </div>

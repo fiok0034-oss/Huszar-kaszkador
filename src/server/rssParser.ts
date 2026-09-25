@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
+import { createHash } from 'node:crypto';
 
 export interface FeedSource {
   id: string;
@@ -188,10 +189,7 @@ export class RssParserUtility {
   }
 
   public generateDeterministicId(str: string): string {
-    return Buffer.from(str)
-      .toString('base64')
-      .replace(/[^a-zA-Z0-9]/g, '')
-      .slice(0, 24);
+    return createHash('sha256').update(str).digest('hex').slice(0, 24);
   }
 
   /**
@@ -278,6 +276,7 @@ export class RssParserUtility {
       [];
 
     const itemsList = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+    const seenIdsInFeed = new Set<string>();
 
     for (const raw of itemsList) {
       let title = '';
@@ -319,9 +318,12 @@ export class RssParserUtility {
       const stuntEval = this.evaluateStuntRelevance(title, summary);
       const prodEval = this.evaluateProductionRelevance(title, summary);
       const realDeadline = this.extractRealDeadline(title, summary);
+      const itemId = this.generateDeterministicId(`${source.id}:${link || title}`);
+      if (seenIdsInFeed.has(itemId)) continue;
+      seenIdsInFeed.add(itemId);
 
       const jobItem: MonitoredJobItem = {
-        id: this.generateDeterministicId(link || title),
+        id: itemId,
         title,
         link,
         sourceId: source.id,
