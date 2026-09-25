@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
-import type { FeedSource } from '../constants/feedSources';
+import { OFFICIAL_FILM_FEEDS, type FeedSource } from '../constants/feedSources';
 
+export { OFFICIAL_FILM_FEEDS };
 export type { FeedSource };
 
 export interface MonitoredJobItem {
@@ -15,6 +16,9 @@ export interface MonitoredJobItem {
   isStuntRelevant: boolean;
   stuntCategory?: 'pedestrian' | 'vehicle' | 'general';
   matchedKeywords: string[];
+  relevanceStatus?: 'LEHETSÉGESEN RELEVÁNS';
+  relevanceNote?: string;
+  categoryLabel?: 'KASZKADŐR / CASTING' | 'PRODUKCIÓ';
   isProductionRelevant?: boolean;
   productionType?: string; // pl. 'Játékfilm' | 'Sorozat' | 'Koprodukció' | 'Forgatás' | 'Nemzetközi stáb'
   deadline?: string | null; // ONLY if real explicit deadline found in text, else null
@@ -43,79 +47,6 @@ export interface ParserResult {
   unavailableSourcesCount: number;
   statusSummary: string;
 }
-
-// Official reputable Hungarian and international film industry news feeds
-export const OFFICIAL_FILM_FEEDS: FeedSource[] = [
-  {
-    id: 'kultura-hu',
-    name: 'Kultúra.hu (Filmes & Kulturális Rovat)',
-    url: 'https://kultura.hu/feed',
-    category: 'industry',
-    description: 'Petőfi Kulturális Ügynökség hivatalos magyar kulturális és filmes hírei, hazai produkciók.',
-    status: 'ONLINE',
-    isAvailableForMonitoring: true,
-  },
-  {
-    id: 'mti-direct',
-    name: 'MTI (Magyar Távirati Iroda)',
-    url: 'https://mti.hu',
-    category: 'industry',
-    description: 'Magyar Távirati Iroda – Közvetlen nyílt RSS/API nem áll rendelkezésre; a szakmai filmes hírek a Kultúra.hu felületén keresztül követhetők.',
-    status: 'UNAVAILABLE',
-    statusLabel: 'SOURCE NOT AVAILABLE FOR AUTOMATIC MONITORING',
-    isAvailableForMonitoring: false,
-    notes: 'Közvetlen nyílt RSS/API hiányában automatikus gépi pásztázásra nem alkalmas.',
-  },
-  {
-    id: 'filmneweurope',
-    name: 'Film New Europe (Közép- és Kelet-Európa)',
-    url: 'https://www.filmneweurope.com/?format=feed&type=rss',
-    category: 'production',
-    description: 'Közép- és kelet-európai, valamint magyarországi filmprodukciók, forgatási helyszínek és stábhírek.',
-    status: 'ONLINE',
-    isAvailableForMonitoring: true,
-  },
-  {
-    id: 'filmtett',
-    name: 'Filmtett Kárpát-medencei Filmes Portál',
-    url: 'https://www.filmtett.ro/feed/',
-    category: 'production',
-    description: 'Magyar nyelvű filmes produkciós közlemények, fesztiválok, forgatási beszámolók és szakmai hírek.',
-    status: 'ONLINE',
-    isAvailableForMonitoring: true,
-  },
-  {
-    id: 'telex-kultura',
-    name: 'Telex Kultúra & Film',
-    url: 'https://telex.hu/rss/archivum?temak=kultura',
-    category: 'industry',
-    description: 'Magyar és nemzetközi filmes és színházi beszámolók, kulturális produkciós hírek.',
-    status: 'ONLINE',
-    isAvailableForMonitoring: true,
-  },
-  {
-    id: 'deadline',
-    name: 'Deadline Hollywood Film Productions',
-    url: 'https://deadline.com/v/film/feed/',
-    category: 'production',
-    description: 'Nemzetközi stúdiófilmek, akció- és kaszkadőrközpontú produkciók hivatalos bejelentései.',
-    status: 'ONLINE',
-    isAvailableForMonitoring: true,
-  },
-  {
-    id: 'cchub',
-    name: 'Casting Call Hub',
-    url: 'https://www.castingcallhub.com/feed/',
-    category: 'casting',
-    description: 'Inaktív archívum – a hírfolyam 2018 óta nem frissült, élő casting figyelésre jelenleg nem alkalmas.',
-    status: 'UNAVAILABLE',
-    statusLabel: 'SOURCE NOT AVAILABLE FOR AUTOMATIC MONITORING',
-    isAvailableForMonitoring: false,
-    notes: 'Archivált feed, élő adatok hiányában nem alkalmas valós idejű figyelésre.',
-  },
-];
-
-// Exact non-hallucinatory keywords reflecting genuine stunt roles
 const PEDESTRIAN_STUNT_KEYWORDS = [
   'stunt',
   'stunt performer',
@@ -344,6 +275,15 @@ export class RssParserUtility {
       if (seenIdsInFeed.has(itemId)) continue;
       seenIdsInFeed.add(itemId);
 
+      let relevanceNote = '';
+      if (stuntEval.isStuntRelevant) {
+        if (stuntEval.stuntCategory === 'vehicle') {
+          relevanceNote = 'Figyelem: Autós kaszkadőr továbbképzés jelenleg még folyamatban van (nem teljesített képesítés).';
+        } else {
+          relevanceNote = 'Huszár Attila gyalogos kaszkadőri profilja alapján lehetségesen releváns felhívás.';
+        }
+      }
+
       const jobItem: MonitoredJobItem = {
         id: itemId,
         title,
@@ -356,6 +296,9 @@ export class RssParserUtility {
         isStuntRelevant: stuntEval.isStuntRelevant,
         stuntCategory: stuntEval.stuntCategory,
         matchedKeywords: stuntEval.matchedKeywords,
+        relevanceStatus: stuntEval.isStuntRelevant ? 'LEHETSÉGESEN RELEVÁNS' : undefined,
+        relevanceNote,
+        categoryLabel: stuntEval.isStuntRelevant ? 'KASZKADŐR / CASTING' : 'PRODUKCIÓ',
         isProductionRelevant: prodEval.isProductionRelevant,
         productionType: prodEval.productionType,
         deadline: realDeadline,
@@ -371,12 +314,17 @@ export class RssParserUtility {
     source: FeedSource,
     options: { forceRefresh?: boolean; ttlMs?: number } = {}
   ): Promise<{ source: FeedSource; items: MonitoredJobItem[]; fromCache: boolean }> {
-    if (source.isAvailableForMonitoring === false || source.status === 'UNAVAILABLE') {
+    if (
+      source.isAvailableForMonitoring === false ||
+      source.monitoringMode === 'MANUAL' ||
+      source.status === 'MANUAL' ||
+      source.status === 'UNAVAILABLE'
+    ) {
       return {
         source: {
           ...source,
-          status: 'UNAVAILABLE',
-          statusLabel: 'SOURCE NOT AVAILABLE FOR AUTOMATIC MONITORING',
+          status: 'MANUAL',
+          statusLabel: 'MANUÁLISAN ELLENŐRIZHETŐ',
           itemsRetrieved: 0,
           lastChecked: new Date().toISOString(),
           cached: false,

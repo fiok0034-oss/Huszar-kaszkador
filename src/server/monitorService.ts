@@ -26,6 +26,9 @@ export interface DashboardStats {
 
 export interface MonitorState {
   lastCheck: string | null;
+  nextScheduledCheck?: string | null;
+  schedulerIntervalMinutes?: number;
+  isScheduledActive?: boolean;
   isChecking: boolean;
   sources: FeedSource[];
   relevantCount: number;
@@ -46,6 +49,9 @@ export interface MonitorState {
 class StuntJobMonitorService {
   private state: MonitorState = {
     lastCheck: null,
+    nextScheduledCheck: null,
+    schedulerIntervalMinutes: 30,
+    isScheduledActive: true,
     isChecking: false,
     sources: [...OFFICIAL_FILM_FEEDS],
     relevantCount: 0,
@@ -76,12 +82,12 @@ class StuntJobMonitorService {
       console.error('[StuntJobMonitorService] Initial feed parse error:', err);
     });
 
-    // Scheduled background update every 20 minutes to maintain fresh cache
+    // Scheduled background update every 30 minutes to maintain fresh cache
     const intervalTimer = setInterval(() => {
       this.refresh(true).catch((err) => {
         console.error('[StuntJobMonitorService] Background update error:', err);
       });
-    }, 20 * 60 * 1000);
+    }, 30 * 60 * 1000);
 
     if (intervalTimer && typeof intervalTimer.unref === 'function') {
       intervalTimer.unref();
@@ -137,8 +143,13 @@ class StuntJobMonitorService {
         parsed.lastCheck
       );
 
+      const nextScheduledCheck = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
       this.state = {
         lastCheck: parsed.lastCheck,
+        nextScheduledCheck,
+        schedulerIntervalMinutes: 30,
+        isScheduledActive: true,
         isChecking: false,
         sources: parsed.sources,
         relevantCount: parsed.relevantCount,
