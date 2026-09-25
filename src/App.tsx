@@ -16,6 +16,7 @@ import { Contact } from './components/Contact';
 import { Footer } from './components/Footer';
 import { CustomCursor } from './components/CustomCursor';
 import { StuntModeOverlay } from './components/StuntModeOverlay';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('rolam');
@@ -79,7 +80,9 @@ export default function App() {
         <Handmade />
 
         {/* 7. Kaszkadőr Munka Figyelő - Valós idejű nyilvános forrásfigyelő */}
-        <StuntJobMonitor />
+        <ErrorBoundary fallbackTitle="ADATFORRÁS ÁTMENETILEG NEM ELÉRHETŐ">
+          <StuntJobMonitor />
+        </ErrorBoundary>
 
         {/* 8. Kapcsolat */}
         <Contact />

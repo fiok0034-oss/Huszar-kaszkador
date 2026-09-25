@@ -90,6 +90,10 @@ async function startServer() {
           isChecking: monitorState.isChecking,
           cached: monitorState.cached,
           cacheAgeSeconds: monitorState.cacheAgeSeconds,
+          statusSummary: monitorState.statusSummary,
+          availableSourcesCount: monitorState.availableSourcesCount,
+          activeOnlineSourcesCount: monitorState.activeOnlineSourcesCount,
+          unavailableSourcesCount: monitorState.unavailableSourcesCount,
         },
       });
     } catch (err: any) {

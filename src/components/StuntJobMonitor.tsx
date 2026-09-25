@@ -16,6 +16,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import type { FeedSource, MonitoredJobItem, DashboardStats } from '../server/monitorService';
+import { OFFICIAL_FILM_FEEDS } from '../constants/feedSources';
 import type { SavedProductionItem, WorkspaceNotification, JobStatus } from '../server/workspaceStorage';
 import { WorkspaceDashboard } from './workspace/WorkspaceDashboard';
 import { StuntJobsTab } from './workspace/StuntJobsTab';
@@ -46,6 +47,7 @@ interface WorkspaceResponseData {
   isChecking: boolean;
   cached?: boolean;
   cacheAgeSeconds?: number;
+  statusSummary?: string;
 }
 
 export const StuntJobMonitor: React.FC = () => {
@@ -53,6 +55,13 @@ export const StuntJobMonitor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryState, setRetryState] = useState<'idle' | 'checking' | 'success' | 'error'>('idle');
+  const [lastSuccessfulCheck, setLastSuccessfulCheck] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('stunt_workspace_last_success') || null;
+    }
+    return null;
+  });
 
   // Workspace View Controls
   const [activeTab, setActiveTab] = useState<
@@ -88,13 +97,36 @@ export const StuntJobMonitor: React.FC = () => {
     }
   }, []);
 
-  const fetchWorkspaceData = async () => {
+  const fetchWorkspaceData = async (isManualRetry = false) => {
+    if (isManualRetry) {
+      setRetryState('checking');
+    }
     try {
       setError(null);
-      const res = await fetch('/api/workspace');
+      let res = await fetch('/api/workspace');
+
+      // Netlify function direct fallback if redirects are processing
+      if (res.status === 404) {
+        try {
+          const fallbackRes = await fetch('/.netlify/functions/workspace');
+          if (fallbackRes.ok) {
+            res = fallbackRes;
+          }
+        } catch {
+          // Keep original response status
+        }
+      }
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success && json.data) {
+        // Record last successful check
+        const checkTime = json.data.lastCheck || new Date().toISOString();
+        setLastSuccessfulCheck(checkTime);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('stunt_workspace_last_success', checkTime);
+        }
+
         // Merge with client-side localStorage saved items
         const localSaved = getLocalSavedItems();
         const mergedSavedMap = new Map<string, SavedProductionItem>();
@@ -135,11 +167,19 @@ export const StuntJobMonitor: React.FC = () => {
           savedItems: mergedSavedList,
           stats: calculatedStats,
         });
+
+        if (isManualRetry) {
+          setRetryState('success');
+          setTimeout(() => setRetryState('idle'), 2500);
+        }
       } else {
         throw new Error(json.error || 'Ismeretlen hiba');
       }
     } catch (err: any) {
-      setError(err?.message || 'Nem sikerült elérni a Stunt Workspace API-t.');
+      setError(err?.message || 'HTTP 404');
+      if (isManualRetry) {
+        setRetryState('error');
+      }
     } finally {
       setLoading(false);
     }
@@ -166,6 +206,33 @@ export const StuntJobMonitor: React.FC = () => {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const formatFullDateTime = (isoString?: string | null) => {
+    if (!isoString) return 'Még nem történt sikeres ellenőrzés';
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleString('hu-HU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
+  const fallbackStats: DashboardStats = {
+    newOpportunitiesCount: 0,
+    savedCount: getLocalSavedItems().length,
+    appliedCount: getLocalSavedItems().filter((i) => i.status === 'JELENTKEZVE').length,
+    pendingCount: getLocalSavedItems().filter((i) => i.status === 'VISSZAJELZÉSRE VÁR').length,
+    closedCount: getLocalSavedItems().filter((i) => i.status === 'LEZÁRVA').length,
+    rejectedCount: getLocalSavedItems().filter((i) => i.status === 'ELUTASÍTVA').length,
+    deadlinesCount: 0,
+    lastCheck: lastSuccessfulCheck,
   };
 
   const handleUnlock = () => {
@@ -469,13 +536,13 @@ export const StuntJobMonitor: React.FC = () => {
   return (
     <section
       id="workspace"
-      className="py-20 sm:py-28 px-4 sm:px-6 max-w-6xl mx-auto border-t border-[#1d2026] relative"
+      className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 max-w-6xl mx-auto border-t border-[#1d2026] relative"
     >
       {/* Anchor for backward compatibility with #figyelo */}
       <span id="figyelo" className="absolute -top-24 pointer-events-none" />
 
       {/* Section Title Header */}
-      <div className="flex items-baseline gap-4 mb-8 border-b border-[#22252c] pb-4">
+      <div className="flex items-baseline gap-4 mb-6 sm:mb-8 border-b border-[#22252c] pb-3 sm:pb-4">
         <span className="font-mono text-xs text-[#6b7280]">06</span>
         <div>
           <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-[#f3f4f6] uppercase">
@@ -489,48 +556,79 @@ export const StuntJobMonitor: React.FC = () => {
 
       {/* Error notification if API is unreachable */}
       {error && (
-        <div className="mb-6 p-4 border border-[#451e1e] bg-[#221010] text-[#f87171] text-xs font-mono flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={16} />
-            <span>{error}</span>
+        <div className="mb-6 p-4 sm:p-5 border border-[#ef4444]/40 bg-[#160b0b] text-[#fca5a5] font-mono text-xs shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 border border-[#ef4444]/60 bg-[#ef4444]/20 text-[#ef4444] font-bold text-[11px] tracking-wider uppercase">
+                  {error.includes('HTTP') ? error : `HIBA // ${error}`}
+                </span>
+                <span className="text-white font-bold tracking-wider uppercase text-sm">
+                  ADATFORRÁS ÁTMENETILEG NEM ELÉRHETŐ
+                </span>
+              </div>
+              <p className="text-xs text-[#fca5a5]/90 leading-relaxed">
+                A háttérfigyelő jelenleg nem érhető el.
+              </p>
+              <div className="text-[11px] text-[#9ca3af] pt-0.5">
+                <span className="text-[#6b7280]">UTOLSÓ SIKERES ELLENŐRZÉS: </span>
+                <strong className="text-white font-normal">
+                  {lastSuccessfulCheck ? formatFullDateTime(lastSuccessfulCheck) : 'Még nem történt sikeres ellenőrzés'}
+                </strong>
+              </div>
+            </div>
+
+            <div className="shrink-0 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => fetchWorkspaceData(true)}
+                disabled={retryState === 'checking'}
+                className="w-full sm:w-auto px-5 py-3 sm:py-2.5 min-h-[44px] border border-[#ef4444]/60 bg-[#ef4444]/20 hover:bg-[#ef4444]/30 active:scale-[0.98] text-white font-bold font-mono text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <RefreshCw
+                  size={14}
+                  className={retryState === 'checking' ? 'animate-spin text-white' : 'text-[#fca5a5]'}
+                />
+                <span>
+                  {retryState === 'checking'
+                    ? 'ELLENŐRZÉS FOLYAMATBAN...'
+                    : retryState === 'success'
+                    ? 'ELLENŐRZÉS KÉSZ'
+                    : 'ÚJRAPRÓBÁLÁS'}
+                </span>
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={fetchWorkspaceData}
-            className="underline hover:text-white"
-          >
-            Újrapróbálás
-          </button>
         </div>
       )}
 
       {/* Main Workspace Dashboard Header & Navigation */}
-      {data && (
-        <WorkspaceDashboard
-          stats={data.stats}
-          isChecking={data.isChecking || refreshing}
-          cached={data.cached}
-          cacheAgeSeconds={data.cacheAgeSeconds}
-          onRefresh={handleRefresh}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          activeFilter={activeFilter}
-          onFilterChange={(filter) => {
-            setActiveFilter(filter);
-            // Auto switch tab if clicking specific status filter
-            if (filter === 'saved' || filter === 'applied' || filter === 'pending' || filter === 'closed') {
-              setActiveTab('saved');
-            } else if (filter === 'new' || filter === 'pedestrian' || filter === 'vehicle') {
-              setActiveTab('jobs');
-            }
-          }}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          isUnlocked={isUnlocked}
-          onToggleLock={handleToggleLock}
-          unreadNotificationsCount={unreadNotificationsCount}
-        />
-      )}
+      <WorkspaceDashboard
+        stats={data?.stats || fallbackStats}
+        isChecking={data?.isChecking || refreshing || retryState === 'checking'}
+        cached={data?.cached}
+        cacheAgeSeconds={data?.cacheAgeSeconds}
+        statusSummary={data?.statusSummary}
+        isError={Boolean(error)}
+        onRefresh={handleRefresh}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        activeFilter={activeFilter}
+        onFilterChange={(filter) => {
+          setActiveFilter(filter);
+          // Auto switch tab if clicking specific status filter
+          if (filter === 'saved' || filter === 'applied' || filter === 'pending' || filter === 'closed') {
+            setActiveTab('saved');
+          } else if (filter === 'new' || filter === 'pedestrian' || filter === 'vehicle') {
+            setActiveTab('jobs');
+          }
+        }}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        isUnlocked={isUnlocked}
+        onToggleLock={handleToggleLock}
+        unreadNotificationsCount={unreadNotificationsCount}
+      />
 
       {/* Main Tab Content Display */}
       <div className="mt-6">
@@ -545,6 +643,7 @@ export const StuntJobMonitor: React.FC = () => {
               <StuntJobsTab
                 items={filteredStuntJobs}
                 savedItems={data?.savedItems || []}
+                statusSummary={data?.statusSummary}
                 onSaveItem={handleSaveItem}
                 onUpdateStatus={handleUpdateStatus}
                 onOpenApplication={(item) => setAppModalItem(item)}
@@ -590,7 +689,9 @@ export const StuntJobMonitor: React.FC = () => {
             )}
 
             {activeTab === 'sources' && (
-              <SourcesDiagnosticsTab sources={data?.sources || []} />
+              <SourcesDiagnosticsTab
+                sources={data?.sources && data.sources.length > 0 ? data.sources : OFFICIAL_FILM_FEEDS}
+              />
             )}
           </>
         )}

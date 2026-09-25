@@ -19,6 +19,8 @@ interface WorkspaceDashboardProps {
   isChecking: boolean;
   cached?: boolean;
   cacheAgeSeconds?: number;
+  statusSummary?: string;
+  isError?: boolean;
   onRefresh: () => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
@@ -36,6 +38,8 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({
   isChecking,
   cached,
   cacheAgeSeconds,
+  statusSummary,
+  isError = false,
   onRefresh,
   searchTerm,
   onSearchChange,
@@ -115,15 +119,19 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border border-[#232733] bg-[#0e1014]">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-pulse" />
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                isError ? 'bg-[#ef4444]' : 'bg-[#10b981] animate-pulse'
+              }`}
+            />
             <span className="font-mono text-xs text-white font-bold tracking-widest uppercase">
               MUNKA FIGYELŐ
             </span>
           </div>
           <span className="text-[#4b5563]">|</span>
           <div className="font-mono text-[11px] text-[#9ca3af] flex items-center gap-2">
-            <span>Nyilvános Szakmai Rendszer</span>
-            {cached && (
+            <span>{isError ? 'Adatforrás Hiba' : 'Nyilvános Szakmai Rendszer'}</span>
+            {cached && !isError && (
               <span className="hidden sm:inline text-[10px] text-[#10b981] px-1.5 py-0.2 border border-[#10b981]/40 bg-[#10b981]/10">
                 ⚡ Cache ({cacheAgeSeconds ?? 0}s)
               </span>
@@ -216,9 +224,17 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({
           <div className="font-mono text-lg sm:text-xl font-bold text-white truncate mb-2">
             {formatTime(stats.lastCheck)}
           </div>
-          <div className="font-mono text-[10px] text-[#10b981] flex items-center gap-1.5 truncate">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
-            <span>Háttérfigyelő aktív</span>
+          <div
+            className={`font-mono text-[10px] flex items-center gap-1.5 truncate ${
+              isError ? 'text-[#ef4444]' : 'text-[#10b981]'
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isError ? 'bg-[#ef4444]' : 'bg-[#10b981] animate-pulse'
+              }`}
+            />
+            <span>{isError ? 'MONITORING ERROR' : 'MONITORING ACTIVE'}</span>
           </div>
         </div>
       </div>

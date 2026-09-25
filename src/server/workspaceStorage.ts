@@ -4,8 +4,19 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
+const isServerless = Boolean(
+  process.env.NETLIFY ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.VERCEL
+);
+
+const DATA_DIR = isServerless
+  ? path.resolve('/tmp', 'stunt-workspace')
+  : path.resolve(process.cwd(), 'data');
+
 const DB_FILE = path.join(DATA_DIR, 'workspace-db.json');
+const SEED_DB_FILE = path.resolve(process.cwd(), 'data', 'workspace-db.json');
 
 export type JobStatus = 'ÉRDEKEL' | 'JELENTKEZVE' | 'VISSZAJELZÉSRE VÁR' | 'LEZÁRVA' | 'ELUTASÍTVA';
 
@@ -75,8 +86,14 @@ export class WorkspaceStorageService {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
 
-      if (fs.existsSync(DB_FILE)) {
-        const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      const fileToLoad = fs.existsSync(DB_FILE)
+        ? DB_FILE
+        : fs.existsSync(SEED_DB_FILE)
+        ? SEED_DB_FILE
+        : null;
+
+      if (fileToLoad) {
+        const raw = fs.readFileSync(fileToLoad, 'utf-8');
         const parsed = JSON.parse(raw);
         this.db = {
           savedItems: Array.isArray(parsed.savedItems) ? parsed.savedItems : [],

@@ -36,6 +36,10 @@ export interface MonitorState {
   cached?: boolean;
   cacheAgeSeconds?: number;
   ttlSeconds?: number;
+  availableSourcesCount?: number;
+  activeOnlineSourcesCount?: number;
+  unavailableSourcesCount?: number;
+  statusSummary?: string;
   stats: DashboardStats;
 }
 
@@ -145,6 +149,10 @@ class StuntJobMonitorService {
         cached: parsed.cached,
         cacheAgeSeconds: parsed.cacheAgeSeconds,
         ttlSeconds: parsed.ttlSeconds,
+        availableSourcesCount: parsed.availableSourcesCount,
+        activeOnlineSourcesCount: parsed.activeOnlineSourcesCount,
+        unavailableSourcesCount: parsed.unavailableSourcesCount,
+        statusSummary: parsed.statusSummary,
         stats,
       };
     } catch (err: any) {

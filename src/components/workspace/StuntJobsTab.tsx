@@ -19,6 +19,7 @@ import { StatusSelector } from './StatusSelector';
 interface StuntJobsTabProps {
   items: MonitoredJobItem[];
   savedItems: SavedProductionItem[];
+  statusSummary?: string;
   onSaveItem: (item: MonitoredJobItem) => void;
   onUpdateStatus?: (id: string, status: JobStatus) => Promise<void>;
   onOpenApplication: (item: MonitoredJobItem) => void;
@@ -32,6 +33,7 @@ interface StuntJobsTabProps {
 export const StuntJobsTab: React.FC<StuntJobsTabProps> = ({
   items,
   savedItems,
+  statusSummary,
   onSaveItem,
   onUpdateStatus,
   onOpenApplication,
@@ -97,13 +99,19 @@ export const StuntJobsTab: React.FC<StuntJobsTabProps> = ({
           <div className="w-12 h-12 rounded-full border border-[#2d3340] bg-[#161a22] flex items-center justify-center mx-auto text-[#6b7280]">
             <Radio size={22} className="animate-pulse" />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <h4 className="font-mono text-sm font-bold text-white uppercase tracking-wider">
               NINCS ÚJ KASZKADŐRI TALÁLAT A FIGYELT FORRÁSOKBAN
             </h4>
-            <p className="text-xs text-[#9ca3af] max-w-xl mx-auto leading-relaxed">
-              A rendszer folyamatosan ellenőrzi a beállított 6 hivatalos hírforrást (Kultúra.hu / MTI, Film New Europe, Filmtett, Telex, Deadline, Casting Call Hub).
-              A szigorú adatvédelmi és hitelességi szabályzat értelmében a rendszer soha nem generál fiktív vagy feltételezett munkalehetőségeket.
+            {statusSummary && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 border border-[#232733] bg-[#08090b] text-[#10b981] font-mono text-[11px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                <span>{statusSummary}</span>
+              </div>
+            )}
+            <p className="text-xs text-[#9ca3af] max-w-xl mx-auto leading-relaxed pt-1">
+              A rendszer kizárólag a hitelesített, aktív hírfolyamokat pásztázza (Kultúra.hu, Film New Europe, Filmtett, Telex Kultúra, Deadline).
+              A szigorú szakmai hitelességi szabályzat szerint a rendszer soha nem jelenít meg feltételezett vagy generált kaszkadőri hirdetést.
             </p>
           </div>
 

@@ -5,7 +5,7 @@ export const Handmade: React.FC = () => {
   const [activeLayer, setActiveLayer] = useState<'all' | 'structure'>('all');
 
   return (
-    <section className="py-20 sm:py-28 px-4 sm:px-6 max-w-6xl mx-auto border-t border-[#1d2026]">
+    <section className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 max-w-6xl mx-auto border-t border-[#1d2026]">
       {/* Section Header */}
       <div className="flex items-baseline gap-4 mb-10 border-b border-[#22252c] pb-4">
         <span className="font-mono text-xs text-[#6b7280]">05</span>

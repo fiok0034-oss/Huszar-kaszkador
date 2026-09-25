@@ -1,19 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
-import { createHash } from 'node:crypto';
+import type { FeedSource } from '../constants/feedSources';
 
-export interface FeedSource {
-  id: string;
-  name: string;
-  url: string;
-  category: 'casting' | 'production' | 'industry';
-  description: string;
-  status: 'ONLINE' | 'ERROR' | 'CHECKING';
-  lastChecked?: string;
-  itemsRetrieved?: number;
-  errorMessage?: string;
-  latencyMs?: number;
-  cached?: boolean;
-}
+export type { FeedSource };
 
 export interface MonitoredJobItem {
   id: string;
@@ -50,17 +38,33 @@ export interface ParserResult {
   cached: boolean;
   cacheAgeSeconds: number;
   ttlSeconds: number;
+  availableSourcesCount: number;
+  activeOnlineSourcesCount: number;
+  unavailableSourcesCount: number;
+  statusSummary: string;
 }
 
 // Official reputable Hungarian and international film industry news feeds
 export const OFFICIAL_FILM_FEEDS: FeedSource[] = [
   {
-    id: 'kultura-mti',
-    name: 'Kultúra.hu (MTI Kultúra & Filmes Rovat)',
-    url: 'https://kultura.hu/feed/',
+    id: 'kultura-hu',
+    name: 'Kultúra.hu (Filmes & Kulturális Rovat)',
+    url: 'https://kultura.hu/feed',
     category: 'industry',
-    description: 'Petőfi Kulturális Ügynökség és a Magyar Távirati Iroda (MTI) hivatalos magyar kulturális és filmes hírei.',
+    description: 'Petőfi Kulturális Ügynökség hivatalos magyar kulturális és filmes hírei, hazai produkciók.',
     status: 'ONLINE',
+    isAvailableForMonitoring: true,
+  },
+  {
+    id: 'mti-direct',
+    name: 'MTI (Magyar Távirati Iroda)',
+    url: 'https://mti.hu',
+    category: 'industry',
+    description: 'Magyar Távirati Iroda – Közvetlen nyílt RSS/API nem áll rendelkezésre; a szakmai filmes hírek a Kultúra.hu felületén keresztül követhetők.',
+    status: 'UNAVAILABLE',
+    statusLabel: 'SOURCE NOT AVAILABLE FOR AUTOMATIC MONITORING',
+    isAvailableForMonitoring: false,
+    notes: 'Közvetlen nyílt RSS/API hiányában automatikus gépi pásztázásra nem alkalmas.',
   },
   {
     id: 'filmneweurope',
@@ -69,6 +73,7 @@ export const OFFICIAL_FILM_FEEDS: FeedSource[] = [
     category: 'production',
     description: 'Közép- és kelet-európai, valamint magyarországi filmprodukciók, forgatási helyszínek és stábhírek.',
     status: 'ONLINE',
+    isAvailableForMonitoring: true,
   },
   {
     id: 'filmtett',
@@ -77,6 +82,7 @@ export const OFFICIAL_FILM_FEEDS: FeedSource[] = [
     category: 'production',
     description: 'Magyar nyelvű filmes produkciós közlemények, fesztiválok, forgatási beszámolók és szakmai hírek.',
     status: 'ONLINE',
+    isAvailableForMonitoring: true,
   },
   {
     id: 'telex-kultura',
@@ -85,6 +91,7 @@ export const OFFICIAL_FILM_FEEDS: FeedSource[] = [
     category: 'industry',
     description: 'Magyar és nemzetközi filmes és színházi beszámolók, kulturális produkciós hírek.',
     status: 'ONLINE',
+    isAvailableForMonitoring: true,
   },
   {
     id: 'deadline',
@@ -93,14 +100,18 @@ export const OFFICIAL_FILM_FEEDS: FeedSource[] = [
     category: 'production',
     description: 'Nemzetközi stúdiófilmek, akció- és kaszkadőrközpontú produkciók hivatalos bejelentései.',
     status: 'ONLINE',
+    isAvailableForMonitoring: true,
   },
   {
     id: 'cchub',
     name: 'Casting Call Hub',
     url: 'https://www.castingcallhub.com/feed/',
     category: 'casting',
-    description: 'Nyilvános nemzetközi és európai casting felhívások filmes szereplőknek és kaszkadőröknek.',
-    status: 'ONLINE',
+    description: 'Inaktív archívum – a hírfolyam 2018 óta nem frissült, élő casting figyelésre jelenleg nem alkalmas.',
+    status: 'UNAVAILABLE',
+    statusLabel: 'SOURCE NOT AVAILABLE FOR AUTOMATIC MONITORING',
+    isAvailableForMonitoring: false,
+    notes: 'Archivált feed, élő adatok hiányában nem alkalmas valós idejű figyelésre.',
   },
 ];
 
@@ -189,7 +200,18 @@ export class RssParserUtility {
   }
 
   public generateDeterministicId(str: string): string {
-    return createHash('sha256').update(str).digest('hex').slice(0, 24);
+    let h1 = 0xdeadbeef;
+    let h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    const hex1 = (h1 >>> 0).toString(16).padStart(8, '0');
+    const hex2 = (h2 >>> 0).toString(16).padStart(8, '0');
+    return `${hex1}${hex2}`.slice(0, 24);
   }
 
   /**
@@ -349,6 +371,21 @@ export class RssParserUtility {
     source: FeedSource,
     options: { forceRefresh?: boolean; ttlMs?: number } = {}
   ): Promise<{ source: FeedSource; items: MonitoredJobItem[]; fromCache: boolean }> {
+    if (source.isAvailableForMonitoring === false || source.status === 'UNAVAILABLE') {
+      return {
+        source: {
+          ...source,
+          status: 'UNAVAILABLE',
+          statusLabel: 'SOURCE NOT AVAILABLE FOR AUTOMATIC MONITORING',
+          itemsRetrieved: 0,
+          lastChecked: new Date().toISOString(),
+          cached: false,
+        },
+        items: [],
+        fromCache: false,
+      };
+    }
+
     const ttlMs = options.ttlMs || this.defaultTtlMs;
     const cacheKey = `feed_${source.id}`;
     const cachedEntry = this.cache.get(cacheKey);
@@ -482,6 +519,17 @@ export class RssParserUtility {
     const relevantItems = uniqueItems.filter((item) => item.isStuntRelevant);
     const productionItems = uniqueItems.filter((item) => item.isProductionRelevant && !item.isStuntRelevant);
 
+    const availableSources = updatedSources.filter((s) => s.isAvailableForMonitoring !== false && s.status !== 'UNAVAILABLE');
+    const onlineSources = availableSources.filter((s) => s.status === 'ONLINE');
+    const unavailableSources = updatedSources.filter((s) => s.isAvailableForMonitoring === false || s.status === 'UNAVAILABLE');
+
+    let statusSummary = '';
+    if (onlineSources.length === availableSources.length && availableSources.length > 0) {
+      statusSummary = `${onlineSources.length} / ${availableSources.length} AKTÍV FORRÁS ELÉRHETŐ (${unavailableSources.length} INAKTÍV JELÖLVE)`;
+    } else {
+      statusSummary = `ELLENŐRZÉS RÉSZLEGES: ${onlineSources.length} / ${availableSources.length} AKTÍV FORRÁS ELÉRHETŐ`;
+    }
+
     const resultData: ParserResult = {
       lastCheck: checkStartTime,
       isChecking: false,
@@ -494,6 +542,10 @@ export class RssParserUtility {
       cached: false,
       cacheAgeSeconds: 0,
       ttlSeconds: Math.round(ttlMs / 1000),
+      availableSourcesCount: availableSources.length,
+      activeOnlineSourcesCount: onlineSources.length,
+      unavailableSourcesCount: unavailableSources.length,
+      statusSummary,
     };
 
     this.cache.set(aggregateCacheKey, {

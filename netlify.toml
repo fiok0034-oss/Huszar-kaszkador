@@ -1,0 +1,57 @@
+[build]
+  publish = "dist"
+  functions = "netlify/functions"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Netlify redirects for backend API routes
+[[redirects]]
+  from = "/api/workspace"
+  to = "/.netlify/functions/workspace"
+  status = 200
+
+[[redirects]]
+  from = "/api/workspace/*"
+  to = "/.netlify/functions/workspace"
+  status = 200
+
+[[redirects]]
+  from = "/api/stunt-jobs/refresh"
+  to = "/.netlify/functions/stunt-jobs-refresh"
+  status = 200
+
+[[redirects]]
+  from = "/api/stunt-jobs/sources"
+  to = "/.netlify/functions/stunt-jobs-sources"
+  status = 200
+
+[[redirects]]
+  from = "/api/stunt-jobs"
+  to = "/.netlify/functions/stunt-jobs"
+  status = 200
+
+[[redirects]]
+  from = "/api/stunt-jobs/*"
+  to = "/.netlify/functions/stunt-jobs"
+  status = 200
+
+[[redirects]]
+  from = "/api/rss-parser"
+  to = "/.netlify/functions/rss-parser"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
